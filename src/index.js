@@ -63,7 +63,8 @@ app.post("/CART", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to fetch cart products",
-      error: error,
+      error: error.meta.target,
+      data: name,
     });
   }
 });
