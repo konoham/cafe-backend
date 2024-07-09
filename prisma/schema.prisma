@@ -20,6 +20,7 @@ model product {
   images  String
   email   String  @default("sinsenju537@gmail.com")
   country String
+  qty      Int       @default(1)
 
   @@unique([name,images])
 }
@@ -31,6 +32,7 @@ model productCart {
   images  String
   email   String   @default("anonymus@gmail.com")
   country String?
+  qty     Int       @default(1)
 
   @@unique([name,images])
 }
