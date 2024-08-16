@@ -19,12 +19,13 @@ app.get("/", async (req, res) => {
 
 app.get("/CART/:email", async (req, res) => {
   const { email } = req.params;
+  if (!email) return res.json({ data: [], massage: "email none", email });
   const sendProduct = await prisma.productCart.findMany({
     where: {
       email,
     },
   });
-  res.send(sendProduct);
+  res.json({ data: sendProduct });
 });
 
 app.post("/CART", async (req, res) => {
