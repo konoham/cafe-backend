@@ -1,2 +1,0 @@
--- AlterTable
-ALTER TABLE `productcart` ADD COLUMN `price` INTEGER NOT NULL DEFAULT 15000;

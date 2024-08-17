@@ -2,10 +2,8 @@ const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const app = express();
-const { PrismaClient } = require("@prisma/client");
+const { createClient } = require("@supabase/supabase-js");
 const midtransClient = require("midtrans-client");
-
-const prisma = new PrismaClient();
 
 dotenv.config();
 
@@ -13,97 +11,54 @@ const port = process.env.PORT;
 app.use(cors());
 app.use(express.json());
 
-app.get("/", async (req, res) => {
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+
+app.get("/", (req, res) => {
   res.send("UTAMA");
 });
 
 app.get("/CART/:email", async (req, res) => {
   const { email } = req.params;
-  if (!email) return res.json({ data: [], massage: "email none", email });
-  const sendProduct = await prisma.productCart.findMany({
-    where: {
-      email,
-    },
-  });
-  res.json({ data: sendProduct });
+  if (!email) return res.json({ data: [], message: "Email none", email });
+
+  const { data: sendProduct, error } = await supabase.from("product-cart").select("*").eq("email", email);
+
+  if (error) return res.status(500).json({ success: false, message: error.message });
+
+  res.json({ data: sendProduct, success: true });
 });
 
 app.post("/CART", async (req, res) => {
   const { name, price, images, email, country, qty } = req.body;
-  try {
-    const sendProduct = await prisma.productCart.create({
-      data: {
-        name,
-        price,
-        images,
-        email,
-        country,
-        qty,
-      },
-    });
 
-    res.status(200).json({
-      success: true,
-      data: sendProduct,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch cart products",
-      error: error.meta.target,
-      data: req.body,
-    });
-  }
+  const { data: sendProduct, error } = await supabase.from("product-cart").insert({ name, price, images, email, country, qty });
+
+  if (error) return res.status(500).json({ success: false, message: error.message });
+
+  res.status(200).json({ success: true, data: sendProduct });
 });
 
 app.patch("/CART/:id", async (req, res) => {
   const id = parseInt(req.params.id);
   const { qty } = req.body;
-  console.log({ qty, id });
 
-  try {
-    const sendProduct = await prisma.productCart.update({
-      where: {
-        id,
-      },
-      data: {
-        qty,
-      },
-    });
+  console.log(qty);
 
-    res.status(200).json({
-      success: true,
-      data: sendProduct,
-      message: "update products succses",
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch cart products",
-      error: error,
-    });
-  }
+  const { data: sendProduct, error } = await supabase.from("product-cart").update({ qty }).eq("id", id);
+
+  if (error) return res.status(500).json({ success: false, message: error.message });
+
+  res.status(200).json({ success: true, data: sendProduct, message: "Update products success" });
 });
 
 app.delete("/CART/:id", async (req, res) => {
-  const productId = parseInt(req.params.id);
-  try {
-    await prisma.productCart.delete({
-      where: {
-        id: productId,
-      },
-    });
-    res.status(200).json({
-      success: true,
-      message: "delete products succses from card",
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch delete products from cart",
-      error: error,
-    });
-  }
+  const id = parseInt(req.params.id);
+
+  const { error } = await supabase.from("product-cart").delete().eq("id", id);
+
+  if (error) return res.status(500).json({ success: false, message: error.message });
+
+  res.status(200).json({ success: true, message: "Delete product success from cart" });
 });
 
 let snap = new midtransClient.Snap({
@@ -114,32 +69,23 @@ let snap = new midtransClient.Snap({
 
 app.post("/CART/BUY", async (req, res) => {
   const buyingProduct = req.body;
+
   try {
     let parameter = {
       transaction_details: {
-        order_id: Number(Date.now().toString() + Math.floor(Math.random() * 1000) + buyingProduct.id),
+        order_id: `${Date.now()}-${buyingProduct.id}-${Math.floor(Math.random() * 1000)}`,
         gross_amount: buyingProduct.price * buyingProduct.qty,
       },
     };
-    console.log(parameter);
-    const token = await snap.createTransactionToken(parameter);
-    console.log(token);
 
-    res.send({
-      success: true,
-      token: token,
-      message: "snap open",
-    });
+    const token = await snap.createTransactionToken(parameter);
+
+    res.send({ success: true, token, message: "Snap open" });
   } catch (error) {
-    const simpleError = JSON.stringify(error, Object.getOwnPropertyNames(error)); // Remove circular structure
-    res.send({
-      success: false,
-      error: simpleError,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
 app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`);
+  console.log(`App listening on port ${port}`);
 });
